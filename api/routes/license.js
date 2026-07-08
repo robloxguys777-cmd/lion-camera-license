@@ -1,37 +1,78 @@
 const express = require('express');
-const router = express.Router();
+const fs = require('fs');
+const path = require('path');
 
-// POST /license/create
+const router = express.Router();
+const dataFile = path.join(__dirname, '../data/licenses.json');
+
+function readLicenses() {
+  try {
+    const raw = fs.readFileSync(dataFile, 'utf8');
+    return JSON.parse(raw || '[]');
+  } catch {
+    return [];
+  }
+}
+
+function writeLicenses(licenses) {
+  fs.writeFileSync(dataFile, JSON.stringify(licenses, null, 2), 'utf8');
+}
+
+function makeKey() {
+  return 'LCM-' + Math.random().toString(36).slice(2, 8).toUpperCase() + '-' + Math.random().toString(36).slice(2, 8).toUpperCase();
+}
+
 router.post('/create', async (req, res) => {
   const { discordId, productId } = req.body;
 
-  // TODO:
-  // - Validate input
-  // - Check auth/permissions
-  // - Generate a real license key
-  // - Store it in your database
+  if (!discordId || !productId) {
+    return res.status(400).json({ success: false, message: 'discordId and productId are required.' });
+  }
 
-  // For now, just mock a response.
+  const licenses = readLicenses();
+  const existing = licenses.find(l => l.discordId === discordId && l.productId === productId && l.status === 'active');
+  if (existing) {
+    return res.json({ success: true, licenseKey: existing.licenseKey, discordId, productId, reused: true });
+  }
+
+  const licenseKey = makeKey();
+  licenses.push({
+    licenseKey,
+    discordId,
+    productId,
+    status: 'active',
+    createdAt: new Date().toISOString()
+  });
+
+  writeLicenses(licenses);
+
   res.json({
     success: true,
-    licenseKey: 'MOCK-KEY-1234',
+    licenseKey,
     discordId,
-    productId
+    productId,
+    reused: false
   });
 });
 
-// GET /license/by-discord/:discordId
 router.get('/by-discord/:discordId', async (req, res) => {
   const { discordId } = req.params;
+  const licenses = readLicenses();
+  const license = licenses.find(l => l.discordId === discordId && l.status === 'active');
 
-  // TODO:
-  // - Look up license in DB for this discordId
-  // - Return the key if active
+  if (!license) {
+    return res.json({
+      success: false,
+      message: 'No active license found for this Discord ID.'
+    });
+  }
 
-  // For now, just mock a response.
   res.json({
-    success: false,
-    message: 'No active license found for this Discord ID.'
+    success: true,
+    licenseKey: license.licenseKey,
+    discordId: license.discordId,
+    productId: license.productId,
+    status: license.status
   });
 });
 
