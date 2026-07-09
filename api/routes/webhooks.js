@@ -29,19 +29,20 @@ async function fetchSellAuth(path) {
   });
 }
 
-function signBody(rawBody, secret) {
+function signBody(rawBodyBuffer, secret) {
+  // Use secret as UTF-8 string key
   return crypto
     .createHmac('sha256', secret)
-    .update(rawBody)
+    .update(rawBodyBuffer)
     .digest('hex');
 }
 
 async function handleWebhook(req, res) {
-  let body = '';
-  req.setEncoding('utf8');
+  const chunks = [];
   for await (const chunk of req) {
-    body += chunk;
+    chunks.push(chunk);
   }
+  const rawBodyBuffer = Buffer.concat(chunks);
 
   console.log('[webhook] headers:', JSON.stringify(req.headers));
 
@@ -62,7 +63,7 @@ async function handleWebhook(req, res) {
     }
   }
 
-  const expected = signBody(body, SELLAUTH_WEBHOOK_SECRET);
+  const expected = signBody(rawBodyBuffer, SELLAUTH_WEBHOOK_SECRET);
 
   if (!signature || signature !== expected) {
     console.warn('[webhook] invalid signature');
@@ -73,7 +74,7 @@ async function handleWebhook(req, res) {
 
   let payload;
   try {
-    payload = JSON.parse(body);
+    payload = JSON.parse(rawBodyBuffer.toString('utf8'));
   } catch (e) {
     console.warn('[webhook] bad json', e);
     return res.status(400).json({ ok: false });
