@@ -3,11 +3,13 @@
   "version": "1.0.0",
   "description": "License system for Lion Camera Mod (Discord + Sellauth)",
   "main": "bot/index.js",
-  "scripts": {
-    "start:bot": "node bot/index.js",
-    "start:api": "node api/index.js",
-    "dev:bot": "node --watch bot/index.js",
-    "dev:api": "node --watch api/index.js"
+"scripts": {
+  "start:bot": "node bot/index.js",
+  "start:api": "node api/index.js",
+  "start": "npx concurrently \"npm run start:bot\" \"npm run start:api\"",
+  "dev:bot": "node --watch bot/index.js",
+  "dev:api": "node --watch api/index.js"
+},
   },
   "dependencies": {
     "discord.js": "^14.15.0",
