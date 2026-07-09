@@ -26,13 +26,13 @@ async function handleWebhook(req, res) {
 
     const newKey = 'LION-' + Math.random().toString(36).slice(2, 10).toUpperCase();
 
-    licenses.push({
-      key: newKey,
-      discord_id: discordId,
-      created_at: new Date().toISOString(),
-      used_by: null,
-      invoice_id: invoiceId || null
-    });
+   licenses.push({
+  key: newKey,
+  discord_id: discordId,        // string, e.g. "1345628709532733537"
+  created_at: new Date().toISOString(),
+  used_by: null,
+  invoice_id: invoiceId || null
+});
 
     fs.writeFileSync(licensesPath, JSON.stringify(licenses, null, 2));
 
