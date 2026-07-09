@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder } = require('discord.js');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -10,7 +10,6 @@ module.exports = {
         .setRequired(true)
     ),
   async execute(interaction) {
-    // Owner-only check
     const guildOwner = interaction.guild.ownerId;
     if (interaction.user.id !== guildOwner) {
       return interaction.reply({
@@ -21,21 +20,26 @@ module.exports = {
 
     const targetUser = interaction.options.getUser('user');
 
-    // TODO: Call your backend API to actually create the key.
-    // Example (later):
-    // const res = await fetch('http://localhost:3000/license/create', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({
-    //     discordId: targetUser.id,
-    //     productId: 'lion-camera'
-    //   })
-    // });
-    // const data = await res.json();
+    const res = await fetch('http://localhost:3000/license/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        discordId: targetUser.id,
+        productId: 'lion-camera'
+      })
+    });
 
-    // For now, just mock a response.
+    const data = await res.json();
+
+    if (!data.success) {
+      return interaction.reply({
+        content: `Failed to create key: ${data.message || 'unknown error'}`,
+        ephemeral: true
+      });
+    }
+
     return interaction.reply({
-      content: `Mock key created for ${targetUser.tag}. (API integration not yet added.)`,
+      content: `Key created for ${targetUser.tag}: \`${data.licenseKey}\``,
       ephemeral: true
     });
   }
