@@ -43,11 +43,31 @@ async function handleWebhook(req, res) {
     body += chunk;
   }
 
-  const signature = req.headers['x-signature'];
+  console.log('[webhook] headers:', JSON.stringify(req.headers));
+
+  const possibleSigHeaders = [
+    'x-signature',
+    'x-sellauth-signature',
+    'x-webhook-signature',
+    'x-signature-256',
+    'signature',
+  ];
+
+  let signature = null;
+  for (const h of possibleSigHeaders) {
+    if (req.headers[h]) {
+      signature = req.headers[h];
+      console.log('[webhook] using signature header:', h);
+      break;
+    }
+  }
+
   const expected = signBody(body, SELLAUTH_WEBHOOK_SECRET);
 
   if (!signature || signature !== expected) {
     console.warn('[webhook] invalid signature');
+    console.warn('[webhook] got signature:', signature);
+    console.warn('[webhook] expected (sha256 hex):', expected);
     return res.status(401).json({ ok: false });
   }
 
