@@ -11,10 +11,22 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds],
 });
 
-const LICENSES_PATH = path.resolve(__dirname, '../data/licenses.json');
+const DATA_DIR = path.resolve(__dirname, '../data');
+const LICENSES_PATH = path.join(DATA_DIR, 'licenses.json');
+
+function ensureDataDir() {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+}
 
 function loadLicenses() {
+  ensureDataDir();
   try {
+    if (!fs.existsSync(LICENSES_PATH)) {
+      fs.writeFileSync(LICENSES_PATH, '[]', 'utf8');
+      return [];
+    }
     const raw = fs.readFileSync(LICENSES_PATH, 'utf8');
     return JSON.parse(raw);
   } catch (e) {
@@ -24,10 +36,10 @@ function loadLicenses() {
 }
 
 function saveLicenses(licenses) {
-  fs.writeFileSync(LICENSES_PATH, JSON.stringify(licenses, null, 2));
+  ensureDataDir();
+  fs.writeFileSync(LICENSES_PATH, JSON.stringify(licenses, null, 2), 'utf8');
 }
 
-// Commands to register
 const commands = [
   {
     name: 'mylicense',
@@ -63,57 +75,71 @@ client.on('interactionCreate', async (interaction) => {
   const userId = interaction.user.id; // Discord user ID (string)
 
   if (interaction.commandName === 'mylicense') {
-    const licenses = loadLicenses();
+    try {
+      const licenses = loadLicenses();
 
-    // Find an unused license for this exact Discord ID
-    const licenseIndex = licenses.findIndex(
-      (l) => l.discord_id === userId && !l.used_by
-    );
+      const licenseIndex = licenses.findIndex(
+        (l) => l.discord_id === userId && !l.used_by
+      );
 
-    if (licenseIndex === -1) {
-      return interaction.reply({
-        content:
-          'No active license found for your account.\n' +
-          'Make sure you purchased with this Discord account linked in SellAuth.',
+      if (licenseIndex === -1) {
+        return interaction.reply({
+          content:
+            'No active license found for your account.\n' +
+            'Make sure you purchased with this Discord account linked in SellAuth.',
+          ephemeral: true,
+        });
+      }
+
+      const license = licenses[licenseIndex];
+      license.used_by = userId;
+      saveLicenses(licenses);
+
+      await interaction.reply({
+        content: `Your Lion Camera Mod license key:\n\n\`\`\`${license.key}\`\`\``,
         ephemeral: true,
       });
+    } catch (e) {
+      console.error('[mylicense] error', e);
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({
+          content: 'Something went wrong while fetching your license.',
+          ephemeral: true,
+        });
+      }
     }
-
-    const license = licenses[licenseIndex];
-
-    // Mark as used
-    license.used_by = userId;
-    saveLicenses(licenses);
-
-    await interaction.reply({
-      content: `Your Lion Camera Mod license key:\n\n\`\`\`${license.key}\`\`\``,
-      ephemeral: true,
-    });
-
     return;
   }
 
   if (interaction.commandName === 'createkey') {
-    // Dev-only test command: creates a license for the user who runs it
-    const licenses = loadLicenses();
+    try {
+      const licenses = loadLicenses();
 
-    const newKey = 'LION-' + Math.random().toString(36).slice(2, 10).toUpperCase();
+      const newKey = 'LION-' + Math.random().toString(36).slice(2, 10).toUpperCase();
 
-    licenses.push({
-      key: newKey,
-      discord_id: userId,
-      created_at: new Date().toISOString(),
-      used_by: null,
-      source: 'createkey-command',
-    });
+      licenses.push({
+        key: newKey,
+        discord_id: userId,
+        created_at: new Date().toISOString(),
+        used_by: null,
+        source: 'createkey-command',
+      });
 
-    saveLicenses(licenses);
+      saveLicenses(licenses);
 
-    await interaction.reply({
-      content: `Created test license for you:\n\n\`\`\`${newKey}\`\`\``,
-      ephemeral: true,
-    });
-
+      await interaction.reply({
+        content: `Created test license for you:\n\n\`\`\`${newKey}\`\`\``,
+        ephemeral: true,
+      });
+    } catch (e) {
+      console.error('[createkey] error', e);
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({
+          content: 'Something went wrong while creating the key.',
+          ephemeral: true,
+        });
+      }
+    }
     return;
   }
 });
