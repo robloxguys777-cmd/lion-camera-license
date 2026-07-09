@@ -31,24 +31,31 @@ async function fetchSellAuth(path) {
 
 async function handleWebhook(req, res) {
   const chunks = [];
-  for await (const chunk of req) {
+
+  req.on('data', chunk => {
     chunks.push(chunk);
-  }
+  });
+
+  await new Promise((resolve, reject) => {
+    req.on('end', resolve);
+    req.on('error', reject);
+  });
+
   const rawBodyBuffer = Buffer.concat(chunks);
+  const rawBody = rawBodyBuffer.toString('utf8');
 
   console.log('[webhook] headers:', JSON.stringify(req.headers));
+  console.log('[webhook] rawBody length:', rawBody.length);
 
   // TEMPORARY: skip signature check to validate flow
   // We will re-enable this once we confirm the rest works
-  // const signature = req.headers['x-signature'];
-  // const expected = crypto.createHmac('sha256', SELLAUTH_WEBHOOK_SECRET).update(rawBodyBuffer).digest('hex');
-  // if (!signature || signature !== expected) { ... }
 
   let payload;
   try {
-    payload = JSON.parse(rawBodyBuffer.toString('utf8'));
+    payload = JSON.parse(rawBody);
   } catch (e) {
     console.warn('[webhook] bad json', e);
+    console.warn('[webhook] rawBody:', rawBody.slice(0, 200));
     return res.status(400).json({ ok: false });
   }
 
