@@ -1,69 +1,90 @@
-require('dotenv').config();
-const { Client, GatewayIntentBits, Collection, Routes } = require('discord.js');
-const { REST } = require('@discordjs/rest');
+const { Client, GatewayIntentBits, REST, Routes } = require('discord.js');
+const fs = require('fs');
+const path = require('path');
+
+const TOKEN = process.env.DISCORD_TOKEN;
+if (!TOKEN) {
+  throw new Error('DISCORD_TOKEN environment variable is required');
+}
 
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-    GatewayIntentBits.DirectMessages
-  ]
+  intents: [GatewayIntentBits.Guilds],
 });
 
-client.commands = new Collection();
+const LICENSES_PATH = path.resolve(__dirname, '../data/licenses.json');
 
-// Load commands (we'll add these files next)
-const createkeyCmd = require('./commands/createkey');
-const mylicenseCmd = require('./commands/mylicense');
+function loadLicenses() {
+  try {
+    const raw = fs.readFileSync(LICENSES_PATH, 'utf8');
+    return JSON.parse(raw);
+  } catch (e) {
+    console.error('[licenses] error loading licenses', e);
+    return [];
+  }
+}
 
-client.commands.set(createkeyCmd.data.name, createkeyCmd);
-client.commands.set(mylicenseCmd.data.name, mylicenseCmd);
+function saveLicenses(licenses) {
+  fs.writeFileSync(LICENSES_PATH, JSON.stringify(licenses, null, 2));
+}
 
-client.once('ready', () => {
-  console.log('Lion License Bot is ready!');
+const commands = [
+  {
+    name: 'license',
+    description: 'Get your Lion Camera Mod license key',
+  },
+];
 
-  // Register slash commands to your test guild
-  const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
+client.once('clientReady', () => {
+  console.log(`Bot logged in as ${client.user.tag}`);
+
+  const rest = new REST({ version: '10' }).setToken(TOKEN);
+
   (async () => {
     try {
       await rest.put(
-        Routes.applicationGuildCommands(process.env.DISCORD_CLIENT_ID, process.env.DISCORD_GUILD_ID),
-        {
-          body: [
-            createkeyCmd.data.toJSON(),
-            mylicenseCmd.data.toJSON()
-          ]
-        }
+        Routes.applicationCommands(client.user.id),
+        { body: commands }
       );
       console.log('Slash commands registered.');
     } catch (err) {
-      console.error('Failed to register slash commands:', err);
+      console.error('Error registering slash commands:', err);
     }
   })();
 });
 
-client.on('interactionCreate', async interaction => {
+client.on('interactionCreate', async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
-  const command = client.commands.get(interaction.commandName);
-  if (!command) return;
+  if (interaction.commandName === 'license') {
+    const userId = interaction.user.id; // Discord user ID (string)
 
-  try {
-    await command.execute(interaction);
-  } catch (err) {
-    console.error('Error executing command:', err);
-    if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({
-        content: 'There was an error executing this command.',
-        ephemeral: true
+    const licenses = loadLicenses();
+
+    // Find an unused license for this exact Discord ID
+    const licenseIndex = licenses.findIndex(
+      (l) => l.discord_id === userId && !l.used_by
+    );
+
+    if (licenseIndex === -1) {
+      return interaction.reply({
+        content: 'No active license found for your account. Make sure you purchased with this Discord account linked in SellAuth.',
+        ephemeral: true,
       });
     }
+
+    const license = licenses[licenseIndex];
+
+    // Mark as used
+    license.used_by = userId;
+    saveLicenses(licenses);
+
+    await interaction.reply({
+      content: `Your Lion Camera Mod license key:\n\n\`\`\`${license.key}\`\`\``,
+      ephemeral: true,
+    });
+
+    return;
   }
 });
 
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-});
-
-client.login(process.env.DISCORD_TOKEN);
+client.login(TOKEN);
