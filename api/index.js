@@ -4,6 +4,7 @@ const licenseRoutes = require('./routes/license');
 const handleWebhook = require('./routes/webhooks');
 
 const app = express();
+
 app.use(express.json());
 
 app.use('/license', licenseRoutes);
