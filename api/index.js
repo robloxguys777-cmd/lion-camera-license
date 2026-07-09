@@ -1,16 +1,33 @@
-require('dotenv').config();
 const express = require('express');
-const licenseRoutes = require('./routes/license');
 const handleWebhook = require('./routes/webhooks');
+
+const PORT = Number(process.env.PORT || 8080);
 
 const app = express();
 
-app.use(express.json());
+// Parse JSON bodies
+app.use((req, res, next) => {
+  let data = '';
+  req.setEncoding('utf8');
+  req.on('data', chunk => data += chunk);
+  req.on('end', () => {
+    try {
+      req.body = data ? JSON.parse(data) : {};
+    } catch {
+      req.body = {};
+    }
+    next();
+  });
+});
 
-app.use('/license', licenseRoutes);
+// Webhook endpoint
 app.post('/webhooks/sellauth', handleWebhook);
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, '0.0.0.0', () => {
+// Health check
+app.get('/health', (req, res) => {
+  res.json({ ok: true });
+});
+
+app.listen(PORT, () => {
   console.log(`Lion License API listening on port ${PORT}`);
 });
