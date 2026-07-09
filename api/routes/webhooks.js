@@ -1,7 +1,5 @@
-const crypto = require('crypto');
 const https = require('https');
 
-const SELLAUTH_WEBHOOK_SECRET = process.env.SELLAUTH_WEBHOOK_SECRET || '';
 const SELLAUTH_API_KEY = process.env.SELLAUTH_API_KEY || '';
 const SELLAUTH_SHOP_ID = Number(process.env.SELLAUTH_SHOP_ID || 0);
 
@@ -30,48 +28,25 @@ async function fetchSellAuth(path) {
 }
 
 async function handleWebhook(req, res) {
-  const chunks = [];
-
-  req.on('data', chunk => {
-    chunks.push(chunk);
-  });
-
-  await new Promise((resolve, reject) => {
-    req.on('end', resolve);
-    req.on('error', reject);
-  });
-
-  const rawBodyBuffer = Buffer.concat(chunks);
-  const rawBody = rawBodyBuffer.toString('utf8');
-
   console.log('[webhook] headers:', JSON.stringify(req.headers));
-  console.log('[webhook] rawBody length:', rawBody.length);
+  console.log('[webhook] body:', JSON.stringify(req.body));
 
-  // TEMPORARY: skip signature check to validate flow
-  // We will re-enable this once we confirm the rest works
-
-  let payload;
-  try {
-    payload = JSON.parse(rawBody);
-  } catch (e) {
-    console.warn('[webhook] bad json', e);
-    console.warn('[webhook] rawBody:', rawBody.slice(0, 200));
-    return res.status(400).json({ ok: false });
-  }
-
-  const { event } = payload || {};
-  const data = payload?.data || {};
-
-  console.log('[webhook] event:', event, 'data:', data);
+  res.status(200).json({ ok: true });
 
   try {
+    const payload = req.body || {};
+    const event = payload.event;
+    const data = payload.data || {};
+
+    console.log('[webhook] event:', event, 'data:', data);
+
     if (event === 'NOTIFICATION.SHOP_INVOICE_PROCESSED' && data.invoice_id) {
       const invoice = await fetchSellAuth(`/shops/${SELLAUTH_SHOP_ID}/invoices/${data.invoice_id}`);
       const customerId = invoice?.customer_id;
 
       if (!customerId) {
         console.warn('[webhook] no customer_id in invoice');
-        return res.status(200).json({ ok: true });
+        return;
       }
 
       const customer = await fetchSellAuth(`/shops/${SELLAUTH_SHOP_ID}/customers/${customerId}`);
@@ -79,7 +54,7 @@ async function handleWebhook(req, res) {
 
       if (!discordId) {
         console.warn('[webhook] no discord_id for customer', customerId);
-        return res.status(200).json({ ok: true });
+        return;
       }
 
       const licenses = require('../data/licenses.json');
@@ -102,8 +77,6 @@ async function handleWebhook(req, res) {
   } catch (e) {
     console.error('[webhook] error', e);
   }
-
-  res.status(200).json({ ok: true });
 }
 
 module.exports = handleWebhook;
