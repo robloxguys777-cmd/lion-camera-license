@@ -11,15 +11,21 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds],
 });
 
-const DATA_DIR = path.resolve(__dirname, '../data');
-const LICENSES_PATH = path.join(DATA_DIR, 'licenses.json');
+// Force absolute path on Railway
+const DATA_DIR = '/app/data';
+const LICENSES_PATH = '/app/data/licenses.json';
 
 console.log('[bot] DATA_DIR:', DATA_DIR);
 console.log('[bot] LICENSES_PATH:', LICENSES_PATH);
 
 function ensureDataDir() {
   if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
+    try {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+      console.log('[bot] created data dir:', DATA_DIR);
+    } catch (e) {
+      console.error('[bot] failed to create data dir', e);
+    }
   }
 }
 
@@ -27,20 +33,24 @@ function loadLicenses() {
   ensureDataDir();
   try {
     if (!fs.existsSync(LICENSES_PATH)) {
-      fs.writeFileSync(LICENSES_PATH, '[]', 'utf8');
+      console.log('[bot] licenses file does not exist yet:', LICENSES_PATH);
       return [];
     }
     const raw = fs.readFileSync(LICENSES_PATH, 'utf8');
+    console.log('[bot] loaded licenses from:', LICENSES_PATH);
+    console.log('[bot] raw licenses:', raw);
     return JSON.parse(raw);
   } catch (e) {
-    console.error('[licenses] error loading licenses', e);
+    console.error('[bot] error loading licenses', e);
     return [];
   }
 }
 
 function saveLicenses(licenses) {
   ensureDataDir();
-  fs.writeFileSync(LICENSES_PATH, JSON.stringify(licenses, null, 2), 'utf8');
+  const json = JSON.stringify(licenses, null, 2);
+  fs.writeFileSync(LICENSES_PATH, json, 'utf8');
+  console.log('[bot] saved licenses to:', LICENSES_PATH);
 }
 
 const commands = [
@@ -76,6 +86,10 @@ client.on('interactionCreate', async (interaction) => {
       const licenseIndex = licenses.findIndex(
         (l) => l.discord_id === userId && !l.used_by
       );
+
+      console.log('[mylicense] userId:', userId);
+      console.log('[mylicense] found index:', licenseIndex);
+      console.log('[mylicense] licenses:', JSON.stringify(licenses));
 
       if (licenseIndex === -1) {
         return interaction.reply({
@@ -148,6 +162,9 @@ client.on('interactionCreate', async (interaction) => {
         lines.length === 0
           ? 'No licenses found.'
           : `Licenses (${licenses.length} total):\n` + lines.join('\n');
+
+      console.log('[debuglicenses] userId:', interaction.user.id);
+      console.log('[debuglicenses] licenses:', JSON.stringify(licenses));
 
       await interaction.reply({
         content: '```\n' + text + '\n```',
