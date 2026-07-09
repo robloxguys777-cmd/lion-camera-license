@@ -4,6 +4,9 @@ const path = require('path');
 const DATA_DIR = path.resolve(__dirname, '../data');
 const LICENSES_PATH = path.join(DATA_DIR, 'licenses.json');
 
+console.log('[webhook] DATA_DIR:', DATA_DIR);
+console.log('[webhook] LICENSES_PATH:', LICENSES_PATH);
+
 function ensureDataDir() {
   if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -27,22 +30,24 @@ function saveLicenses(licenses) {
 
 async function handleWebhook(req, res) {
   console.log('[webhook] headers:', JSON.stringify(req.headers));
-  console.log('[webhook] body:', JSON.stringify(req.body));
+  console.log('[webhook] body event:', req.body?.event);
 
-  // Always respond quickly so SellAuth doesn't retry
+  // Respond immediately so SellAuth doesn't retry
   res.status(200).json({ ok: true });
 
   try {
     const payload = req.body || {};
-    const event = payload.event;
-    const invoiceId = payload.invoice_id || payload.id;
-    const customer = payload.customer || {};
-    const discordId = customer.discord_id;
 
-    console.log('[webhook] event:', event, 'invoiceId:', invoiceId, 'discordId:', discordId);
+    // SellAuth sends: payload.customer.discord_id
+    const discordId = payload.customer?.discord_id;
+    const invoiceId = payload.invoice_id || payload.id;
+
+    console.log('[webhook] event:', payload.event);
+    console.log('[webhook] invoiceId:', invoiceId);
+    console.log('[webhook] discordId:', discordId);
 
     if (!discordId) {
-      console.warn('[webhook] no discord_id found in payload');
+      console.warn('[webhook] no discord_id in payload.customer');
       return;
     }
 
@@ -52,7 +57,7 @@ async function handleWebhook(req, res) {
 
     licenses.push({
       key: newKey,
-      discord_id: discordId,
+      discord_id: discordId,        // string, e.g. "1345628709532733537"
       created_at: new Date().toISOString(),
       used_by: null,
       invoice_id: invoiceId || null,
@@ -62,6 +67,7 @@ async function handleWebhook(req, res) {
     saveLicenses(licenses);
 
     console.log('[webhook] created license for', discordId, newKey);
+    console.log('[webhook] total licenses now:', licenses.length);
   } catch (e) {
     console.error('[webhook] error', e);
   }
