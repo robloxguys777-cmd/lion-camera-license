@@ -14,6 +14,9 @@ const client = new Client({
 const DATA_DIR = path.resolve(__dirname, '../data');
 const LICENSES_PATH = path.join(DATA_DIR, 'licenses.json');
 
+console.log('[bot] DATA_DIR:', DATA_DIR);
+console.log('[bot] LICENSES_PATH:', LICENSES_PATH);
+
 function ensureDataDir() {
   if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -41,14 +44,9 @@ function saveLicenses(licenses) {
 }
 
 const commands = [
-  {
-    name: 'mylicense',
-    description: 'Get your Lion Camera Mod license key',
-  },
-  {
-    name: 'createkey',
-    description: 'Create a test license key for yourself (dev only)',
-  },
+  { name: 'mylicense', description: 'Get your Lion Camera Mod license key' },
+  { name: 'createkey', description: 'Create a test license key for yourself (dev only)' },
+  { name: 'debuglicenses', description: 'Show all licenses (dev only)' },
 ];
 
 client.once('clientReady', () => {
@@ -58,10 +56,7 @@ client.once('clientReady', () => {
 
   (async () => {
     try {
-      await rest.put(
-        Routes.applicationCommands(client.user.id),
-        { body: commands }
-      );
+      await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
       console.log('Slash commands registered.');
     } catch (err) {
       console.error('Error registering slash commands:', err);
@@ -114,7 +109,6 @@ client.on('interactionCreate', async (interaction) => {
   if (interaction.commandName === 'createkey') {
     try {
       const licenses = loadLicenses();
-
       const newKey = 'LION-' + Math.random().toString(36).slice(2, 10).toUpperCase();
 
       licenses.push({
@@ -136,6 +130,34 @@ client.on('interactionCreate', async (interaction) => {
       if (!interaction.replied && !interaction.deferred) {
         await interaction.reply({
           content: 'Something went wrong while creating the key.',
+          ephemeral: true,
+        });
+      }
+    }
+    return;
+  }
+
+  if (interaction.commandName === 'debuglicenses') {
+    try {
+      const licenses = loadLicenses();
+      const lines = licenses.map((l, i) =>
+        `${i + 1}. key=${l.key} discord_id=${l.discord_id} used_by=${l.used_by ?? 'null'} source=${l.source ?? 'unknown'}`
+      );
+
+      const text =
+        lines.length === 0
+          ? 'No licenses found.'
+          : `Licenses (${licenses.length} total):\n` + lines.join('\n');
+
+      await interaction.reply({
+        content: '```\n' + text + '\n```',
+        ephemeral: true,
+      });
+    } catch (e) {
+      console.error('[debuglicenses] error', e);
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({
+          content: 'Failed to read licenses.',
           ephemeral: true,
         });
       }
