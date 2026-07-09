@@ -27,10 +27,15 @@ function saveLicenses(licenses) {
   fs.writeFileSync(LICENSES_PATH, JSON.stringify(licenses, null, 2));
 }
 
+// Commands to register
 const commands = [
   {
-    name: 'license',
+    name: 'mylicense',
     description: 'Get your Lion Camera Mod license key',
+  },
+  {
+    name: 'createkey',
+    description: 'Create a test license key for yourself (dev only)',
   },
 ];
 
@@ -55,9 +60,9 @@ client.once('clientReady', () => {
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
-  if (interaction.commandName === 'license') {
-    const userId = interaction.user.id; // Discord user ID (string)
+  const userId = interaction.user.id; // Discord user ID (string)
 
+  if (interaction.commandName === 'mylicense') {
     const licenses = loadLicenses();
 
     // Find an unused license for this exact Discord ID
@@ -67,7 +72,9 @@ client.on('interactionCreate', async (interaction) => {
 
     if (licenseIndex === -1) {
       return interaction.reply({
-        content: 'No active license found for your account. Make sure you purchased with this Discord account linked in SellAuth.',
+        content:
+          'No active license found for your account.\n' +
+          'Make sure you purchased with this Discord account linked in SellAuth.',
         ephemeral: true,
       });
     }
@@ -80,6 +87,30 @@ client.on('interactionCreate', async (interaction) => {
 
     await interaction.reply({
       content: `Your Lion Camera Mod license key:\n\n\`\`\`${license.key}\`\`\``,
+      ephemeral: true,
+    });
+
+    return;
+  }
+
+  if (interaction.commandName === 'createkey') {
+    // Dev-only test command: creates a license for the user who runs it
+    const licenses = loadLicenses();
+
+    const newKey = 'LION-' + Math.random().toString(36).slice(2, 10).toUpperCase();
+
+    licenses.push({
+      key: newKey,
+      discord_id: userId,
+      created_at: new Date().toISOString(),
+      used_by: null,
+      source: 'createkey-command',
+    });
+
+    saveLicenses(licenses);
+
+    await interaction.reply({
+      content: `Created test license for you:\n\n\`\`\`${newKey}\`\`\``,
       ephemeral: true,
     });
 
