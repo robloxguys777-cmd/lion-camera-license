@@ -1,9 +1,14 @@
 const crypto = require('crypto');
 const https = require('https');
 
-const SELLAUTH_WEBHOOK_SECRET = '<<SELLAUTH_WEBHOOK_SECRET>>';
-const SELLAUTH_API_KEY = '<<SELLAUTH_API_KEY>>';
-const SELLAUTH_SHOP_ID = <<SELLAUTH_SHOP_ID>>;
+const crypto = require('crypto');
+const https = require('https');
+
+const SELLAUTH_WEBHOOK_SECRET = process.env.SELLAUTH_WEBHOOK_SECRET || '';
+const SELLAUTH_API_KEY = process.env.SELLAUTH_API_KEY || '';
+const SELLAUTH_SHOP_ID = Number(process.env.SELLAUTH_SHOP_ID || 0);
+
+const BASE = 'https://api.sellauth.com/api';
 
 const BASE = 'https://api.sellauth.com/api';
 
