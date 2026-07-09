@@ -5,16 +5,16 @@
   "main": "bot/index.js",
   "type": "commonjs",
   "scripts": {
-    "start": "npx concurrently \"npm run start:bot\" \"npm run start:api\"",
+    "start": "concurrently \"npm run start:bot\" \"npm run start:api\"",
     "start:bot": "node bot/index.js",
     "start:api": "node api/index.js"
   },
   "dependencies": {
-    "concurrently": "^10.0.3",
-    "discord.js": "^14.x",
-    "express": "^4.x"
+    "concurrently": "^8.2.2",
+    "discord.js": "^14.16.3",
+    "express": "^4.21.2"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=18 <21"
   }
 }
