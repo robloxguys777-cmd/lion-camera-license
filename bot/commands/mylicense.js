@@ -7,14 +7,18 @@ module.exports = {
   async execute(interaction) {
     const discordId = interaction.user.id;
 
-    // TODO: Call your backend API to look up the license for this Discord ID.
-    // Example (later):
-    // const res = await fetch(`http://localhost:3000/license/by-discord/${discordId}`);
-    // const data = await res.json();
+    const res = await fetch(`http://localhost:3000/license/by-discord/${discordId}`);
+    const data = await res.json();
 
-    // For now, just a mock response.
+    if (!data.success) {
+      return interaction.reply({
+        content: data.message || 'No active license found.',
+        ephemeral: true
+      });
+    }
+
     return interaction.reply({
-      content: 'You have no active license yet. (API integration not yet added.)',
+      content: `Your license key is: \`${data.licenseKey}\``,
       ephemeral: true
     });
   }
